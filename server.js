@@ -60,7 +60,7 @@ io.on('connection', (socket) => {
 
     socket.on('mensaje', (mensaje) => {
         console.log(mensaje);
-        socket.broadcast.emit('mensaje', mensaje);
+        io.emit('mensaje', { name, texto: mensaje });  // Emitir el mensaje con el nombre del usuario a todos los clientes
     });
 });
 

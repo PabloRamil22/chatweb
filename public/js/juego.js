@@ -1,5 +1,6 @@
 const socket = io();
 let connectedUsers = document.getElementById("connectedUsers");
+let messageContainer = document.getElementById("messageContainer");
 
 // Obtener el ID del usuario actual desde una variable global que puedes definir en el HTML
 const currentUserId = document.getElementById("currentUserId").value;
@@ -17,6 +18,13 @@ socket.on('usuarios_actualizados', (usuarios) => {
             connectedUsers.appendChild(li);
         }
     });
+});
+
+// Recibir y mostrar los mensajes con el nombre del usuario
+socket.on('mensaje', (data) => {
+    const messageDiv = document.createElement('div');
+    messageDiv.innerHTML = `<strong>${data.name}:</strong> ${data.texto}`;
+    messageContainer.appendChild(messageDiv);
 });
 
 document.getElementById("btnEnviar").onclick = () => {
