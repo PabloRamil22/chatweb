@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 const User = require('./models/user');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
@@ -13,28 +13,28 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-
+// Configura el middleware para manejar datos JSON y datos codificados en URL
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Configura el motor de plantillas EJS
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
-let usuarios = [];
+let usuarios=[];
 
 app.use(express.static('public'));
 
-const session_middleware = session({
-    secret: 'mysecret',
+// Configurar el middleware de sesión con connect-mongo
+const session_middleware=session({
+    secret: 'mysecret', // Cambia esto por una cadena secreta segura
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: 'mongodb://localhost:27017/tresenraya',
         collectionName: 'sessions'
-    })
-});
-
+    })});
 app.use(session_middleware);
 
+// Conectar a MongoDB{_id,name}
 mongoose.connect('mongodb://localhost:27017/tresenraya')
     .then(() => {
         console.log('Conectado a MongoDB');
@@ -42,32 +42,51 @@ mongoose.connect('mongodb://localhost:27017/tresenraya')
         console.error('Error al conectar a MongoDB', err);
     });
 
-io.use((socket, next) => {
-    session_middleware(socket.request, socket.request.res || {}, next);
+//Socket
+//Socket Session
+io.use((socket,next)=>{
+    session_middleware(socket.request,socket.request.next||{},next);
 });
 
 io.on('connection', (socket) => {
-    console.log("Nuevo cliente conectado" + socket.id);
-    const { _id, name } = socket.request.session.user;
-    usuarios.push({ _id, name });
-    io.emit("usuarios_actualizados", usuarios);
+        console.log("Nuevo cliente conectado" + socket.id);
+        const {_id,name}=socket.request.session.user;
+        
+        usuarios.push({_id,name,socketId:socket.id})
+        //console.log(usuarios);
+        io.emit("usuarios",usuarios);
 
-    socket.on('disconnect', () => {
-        console.log("Se ha desconectado un cliente");
-        usuarios = usuarios.filter(user => user._id !== _id);
-        io.emit("usuarios_actualizados", usuarios);
-    });
 
-    socket.on('mensaje', (mensaje) => {
-        console.log(mensaje);
-        io.emit('mensaje', { name, texto: mensaje });  // Emitir el mensaje con el nombre del usuario a todos los clientes
-    });
-});
+
+        socket.on('disconnect', () => {
+            console.log("Se ha desconectado un cliente");
+
+            usuarios = usuarios.filter(user => user._id !== _id);
+            //console.log(usuarios);
+            io.emit("usuarios", usuarios);
+        });
+
+        socket.on('mensaje', (mensaje) => {
+            console.log(mensaje);
+            const usermensaje={_id,name,mensaje}
+            //socket.broadcast.emit('mensaje', usermensaje);
+            io.emit('mensaje', usermensaje);
+
+        })
+
+        socket.on('invitaciones',(datos)=>{
+            io.to(datos).emit("privados","Invitación pendiente de "+name)
+        })
+
+        
+})
+
 
 app.get("/login", (req, res) => {
-    const error = req.query.error || '';
+    //res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    const error = req.query.error || '';;
     res.render('login', { error });
-});
+})
 
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
@@ -81,34 +100,35 @@ app.post("/login", async (req, res) => {
         if (!isMatch) {
             return res.render('login', { error: 'Usuario o contraseña incorrecto' });
         }
-        req.session.user = user;
+        req.session.user=user;
         res.redirect('/juego');
     } catch (error) {
         console.error(error);
-        res.render('login', { error: 'Error de conexión a la base de datos' });
+        res.render('login', { error: 'Error de conexion a la base de datos' });
     }
-});
 
-app.get("/register", (req, res) => {
-    let error = "";
-    res.render("register", { error });
-});
+})
+
+app.get("/register",(req,res)=>{
+    let error="";
+    res.render("register",{error}); 
+})
 
 app.post("/register", async (req, res) => {
-    const { name, email, password } = req.body;
+    const {name,email,password}=req.body;
     let usuario = new User({ name, email, password });
     try {
         await usuario.save();
         res.redirect("/login");
-    } catch (error) {
-        res.render("register", { error: "Error de conexión a BBDD" });
+    } catch (error) {      
+        res.render("register",{error:"Error de conexion a bbdd"});
     }
-});
+})
 
-app.get("/juego", isAuthenticated, (req, res) => {
-    let { _id, name } = req.session.user;
-    res.render("juego", { user: { _id, name } });
-});
+app.get("/juego", isAuthenticated,(req, res) => {
+    let {_id,name}=req.session.user;
+    res.render("juego",{user:{_id,name}});
+})
 
 server.listen(PORT, () => {
     console.log(`Servidor escuchando en el puerto ${PORT}`);

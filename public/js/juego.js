@@ -1,33 +1,44 @@
 const socket = io();
 let connectedUsers = document.getElementById("connectedUsers");
-let messageContainer = document.getElementById("messageContainer");
+socket.on('pendientes', (datos) => {
+    console.log(datos);
+})
 
-// Obtener el ID del usuario actual desde una variable global que puedes definir en el HTML
-const currentUserId = document.getElementById("currentUserId").value;
-
-socket.on('usuarios_actualizados', (usuarios) => {
-    // Limpiar la lista de usuarios conectados
-    connectedUsers.innerHTML = '';
-
-    // Filtrar y añadir cada usuario a la lista, excluyendo el usuario actual
-    usuarios.forEach(user => {
-        if (user._id !== currentUserId) {
+socket.on('mensaje',(datos)=>{
+    const p = document.createElement('p');
+     p.innerText= datos.name+": "+datos.mensaje;
+     document.getElementById("chatgeneral").appendChild(p);
+})
+socket.on('privados',(datos)=>{
+    const p = document.createElement('p');
+     p.innerText= datos;
+     document.getElementById("chatprivado").appendChild(p);
+})
+socket.on('usuarios', (datos) => {
+    connectedUsers.innerHTML = "";
+    datos.forEach(user => {
+        if (!document.getElementById(user._id)) {
             const li = document.createElement('li');
-            li.id = user._id;
+            li.id = user.socketId;
             li.textContent = user.name;
+            li.classList.add('list-group-item');
+            li.onclick = (e) => {
+                alert(e.currentTarget.id)
+                socket.emit("invitaciones", e.currentTarget.id);
+            }
             connectedUsers.appendChild(li);
         }
     });
-});
 
-// Recibir y mostrar los mensajes con el nombre del usuario
-socket.on('mensaje', (data) => {
-    const messageDiv = document.createElement('div');
-    messageDiv.innerHTML = `<strong>${data.name}:</strong> ${data.texto}`;
-    messageContainer.appendChild(messageDiv);
-});
+
+    //console.log(datos);
+})
+
+
+
 
 document.getElementById("btnEnviar").onclick = () => {
     let texto = document.getElementById("texto").value;
+    document.getElementById("texto").value="";
     socket.emit("mensaje", texto);
-};
+}
