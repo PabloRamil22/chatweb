@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const mongoose = require("mongoose")
 const User = require('./models/user');
+const Partida = require('./models/partida');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const isAuthenticated = require('./middleware/authenticated');
@@ -74,8 +75,19 @@ io.on('connection', (socket) => {
 
         })
 
-        socket.on('invitaciones',(datos)=>{
-            io.to(datos).emit("privados","Invitación pendiente de "+name)
+        socket.on('invitaciones', async (datos)=>{
+           let player1=_id;
+           let player2=datos.userId;
+           let estado='pendiente';
+
+            let partida = new Partida({ player1,player2,estado });
+            try {
+                await partida.save();  
+                io.to(datos.socketID).emit("privados",{partida,name})
+                console.log(partida)
+            } catch (error) {      
+               console.log(error)
+            }
         })
 
         
@@ -125,9 +137,12 @@ app.post("/register", async (req, res) => {
     }
 })
 
-app.get("/juego", isAuthenticated,(req, res) => {
+app.get("/juego", isAuthenticated,async (req, res) => {
     let {_id,name}=req.session.user;
-    res.render("juego",{user:{_id,name}});
+    let player2=_id;
+    let estado='pendiente';
+    let partidas=await Partida.find({player2,estado});
+    res.render("juego",{user:{_id,name},partidas});
 })
 
 server.listen(PORT, () => {
